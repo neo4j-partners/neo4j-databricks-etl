@@ -299,6 +299,59 @@ databricks secrets put-secret neo4j password
 - Verify station names match exactly between CSVs (case-sensitive, watch for trailing spaces)
 - Check Delta tables have correct data: `spark.table("london_catalog.london_schema.london_stations").show()`
 
+### Notebook Format Issues
+
+**CRITICAL: Databricks notebook formatting requirements**
+
+Databricks notebooks must be properly structured Jupyter notebook JSON files (.ipynb). Common issues:
+
+**"Notebook won't open in Databricks"**
+- The notebook file contains raw JSON as text in a single cell instead of being parsed as multiple cells
+- This happens when a notebook is pasted or imported incorrectly
+- Databricks sees the entire JSON structure as plain text content rather than a multi-cell notebook
+
+**How to fix:**
+1. **Never** copy/paste raw .ipynb JSON content into Databricks
+2. **Always** use Databricks "Import" feature (File → Import) for .ipynb files
+3. When creating notebooks programmatically, ensure proper structure:
+   - Valid JSON with `cells`, `metadata`, `nbformat`, and `nbformat_minor` keys
+   - Each cell must have `cell_type`, `metadata`, `source`, and `outputs` (for code cells)
+   - Metadata must include `language_info.version: "3.9.0"` (not 3.12 or other versions)
+   - Use `nbformat: 4` and `nbformat_minor: 4`
+
+**Creating notebooks programmatically:**
+```python
+import json
+
+notebook = {
+    "cells": [
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": ["print('Hello')"]
+        }
+    ],
+    "metadata": {
+        "kernelspec": {
+            "display_name": "Python 3",
+            "language": "python",
+            "name": "python3"
+        },
+        "language_info": {
+            "name": "python",
+            "version": "3.9.0"
+        }
+    },
+    "nbformat": 4,
+    "nbformat_minor": 4
+}
+
+with open('notebook.ipynb', 'w') as f:
+    json.dump(notebook, f, indent=1)
+```
+
 ## Working Approach for New Features and Changes
 
 **CRITICAL: Always start simple and plan before coding.**
