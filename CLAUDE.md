@@ -124,6 +124,7 @@ df.select(
 neo4j-databricks-etl/
 ├── README.md                              # Setup instructions and overview
 ├── CLAUDE.md                              # This file - guidance for Claude Code
+├── EXPLORING_DATA.md                      # Visual exploration guide for Neo4j Aura
 ├── DBX_PORT_v2.md                         # Implementation plan and status
 ├── TEXT2CYPHER_PROPOSAL.md                # Text-to-Cypher agent proposal and status
 ├── datasets/
@@ -131,6 +132,10 @@ neo4j-databricks-etl/
 │   │   ├── London_stations.csv            # 302 stations
 │   │   └── London_tube_lines.csv          # Tube connections
 │   └── README.md                          # Dataset documentation
+├── images/
+│   ├── aura_explore.png                   # Aura Explore interface screenshot
+│   ├── search_stations.png                # Search pattern example
+│   └── all_stations_graph.png             # Full graph visualization
 └── notebooks/
     ├── load_london_transport.ipynb        # ETL notebook (12 steps)
     └── query_london_transport.ipynb       # Text-to-Cypher agent for querying data

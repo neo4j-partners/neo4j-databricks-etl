@@ -137,7 +137,28 @@ After successful execution:
 
 **Note:** All validation queries are included in Step 15 of the notebook.
 
-## Querying the Data
+## Exploring and Querying the Data
+
+### Visual Exploration in Neo4j Aura
+
+After loading the data, you can visually explore the London Transport Network graph:
+
+**Guide:** See [EXPLORING_DATA.md](EXPLORING_DATA.md) for step-by-step instructions
+
+**Quick Start:**
+1. Go to Neo4j Aura Console → Tools → **Explore**
+2. Connect to your instance
+3. Search pattern: `Station — (any) — Station`
+4. View the interactive graph visualization
+
+**Features:**
+- Visual graph exploration with color-coded tube lines
+- Filter by station properties (zone, name, postcode)
+- Find shortest paths between stations
+- Identify major interchange stations
+- Custom perspectives and layouts
+
+---
 
 ### Text-to-Cypher Agent (NEW)
 
@@ -158,12 +179,70 @@ After loading the data, you can query it using natural language with the **Text-
 - "Find a path between King's Cross and Victoria"
 - "Show me stations to avoid during rush hour"
 
-**Requirements:**
-1. London Transport data loaded (run `load_london_transport.ipynb` first)
-2. Python libraries: `langchain`, `langchain-neo4j`, `langchain-openai`
-3. Databricks Foundation Models access
+---
 
-**Setup:** See `TEXT2CYPHER_PROPOSAL.md` for detailed setup and implementation details.
+### Setup: Databricks Serving Endpoint
+
+Before using the Text-to-Cypher agent, set up a Databricks Foundation Model serving endpoint:
+
+#### 1. Navigate to Serving Endpoints
+
+1. In your Databricks workspace, click on **Serving** in the left sidebar (under AI/ML section)
+2. Click **Create serving endpoint** or use an existing endpoint
+
+#### 2. Configure the Endpoint
+
+**Endpoint Configuration:**
+- **Name:** `databricks-claude-sonnet-4-5` (or your preferred model)
+- **Served Entity:** Select **Claude Sonnet 4.5** from Foundation Models or your preferred model
+- **Description:** Claude Sonnet 4.5 for text-to-Cypher generation
+
+
+#### 3. Get Your Endpoint URL
+
+Once the endpoint is ready (status shows green checkmark "Ready"):
+
+1. Copy the **endpoint URL** from the top of the page
+   - Format: `https://adb-XXXXXXXXX.X.azuredatabricks.net/serving-endpoints/databricks-claude-sonnet-4-5/invocations`
+2. Note the **base URL** (without `/invocations`):
+   - Format: `https://adb-XXXXXXXXX.X.azuredatabricks.net/serving-endpoints`
+
+#### 4. Configure the Notebook
+
+Open `notebooks/query_london_transport.ipynb` and update the widgets:
+
+1. **Databricks Endpoint:** Enter your base URL
+   ```
+   https://adb-XXXXXXXXX.X.azuredatabricks.net/serving-endpoints
+   ```
+
+2. **Model Name:** Enter your endpoint name
+   ```
+   databricks-claude-sonnet-4-5
+   ```
+
+The notebook will automatically retrieve your Databricks token from the notebook context.
+
+---
+
+### Requirements
+
+1. **London Transport data loaded** - Run `load_london_transport.ipynb` first
+2. **Python libraries installed** on cluster:
+   - `langchain`
+   - `langchain-neo4j`
+   - `langchain-openai`
+   - `neo4j`
+3. **Databricks Foundation Model endpoint** configured (see setup above)
+
+---
+
+### Usage
+
+1. Run all cells in the configuration section
+2. Verify Neo4j connection and data exists
+3. Try the example questions or modify the interactive cell
+4. Review generated Cypher queries in the output (verbose mode enabled)
 
 ## Project Structure
 
@@ -171,6 +250,7 @@ After loading the data, you can query it using natural language with the **Text-
 neo4j-databricks-etl/
 ├── README.md                              # This file
 ├── CLAUDE.md                              # Claude Code guidance
+├── EXPLORING_DATA.md                      # Visual exploration guide (NEW)
 ├── DBX_PORT_v2.md                         # Implementation plan and status
 ├── TEXT2CYPHER_PROPOSAL.md                # Text-to-Cypher agent proposal
 ├── datasets/
@@ -179,6 +259,10 @@ neo4j-databricks-etl/
 │   │       ├── London_stations.csv        # 302 stations
 │   │       └── London_tube_lines.csv      # Tube connections
 │   └── README.md                          # Dataset documentation
+├── images/
+│   ├── aura_explore.png                   # Aura Explore interface
+│   ├── search_stations.png                # Search pattern example
+│   └── all_stations_graph.png             # Graph visualization
 └── notebooks/
     ├── load_london_transport.ipynb        # ETL notebook
     └── query_london_transport.ipynb       # Text-to-Cypher agent (NEW)
@@ -255,19 +339,6 @@ CSV files → Unity Catalog Volume → Delta Lake tables → PySpark → Neo4j
 2. **Create indexes first** - Before loading relationships
 3. **Use Delta Lake caching** - Cache tables used multiple times
 4. **Monitor Spark UI** - Check for data skew or memory issues
-
-## Reference
-
-This implementation follows patterns from the [databricks-neo4j-mcp-demo](https://github.com/neo4j-partners/databricks-neo4j-mcp-demo) project.
-
-### Key Differences from GCP Dataflow
-
-| Aspect | GCP Dataflow | This Project |
-|--------|--------------|--------------|
-| Configuration | JSON templates | Notebook cells |
-| Data Source | BigQuery | Delta Lake |
-| Orchestration | Managed template | Direct PySpark |
-| Monitoring | Dataflow console | Spark UI |
 
 ## License
 
