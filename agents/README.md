@@ -4,12 +4,12 @@ A standalone Python program that allows you to query the Neo4j London Transport 
 
 ## Features
 
-- 🗣️ **Natural Language Queries** - Ask questions in plain English
-- 🔍 **Automatic Cypher Generation** - LLM converts your questions to Cypher
-- 📊 **Direct Results** - Execute queries and display results immediately
-- 🔄 **Interactive Mode** - Continuous question-and-answer sessions
-- 🎯 **Single Question Mode** - Run one query and exit
-- 🌐 **Flexible LLM Support** - Works with OpenAI, Databricks, Ollama, or any OpenAI-compatible endpoint
+- **Natural Language Queries** - Ask questions in plain English
+- **Automatic Cypher Generation** - LLM converts your questions to Cypher
+- **Direct Results** - Execute queries and display results immediately
+- **Interactive Mode** - Continuous question-and-answer sessions
+- **Single Question Mode** - Run one query and exit
+- **Flexible LLM Support** - Works with OpenAI, Databricks Foundation Models, Ollama, or any OpenAI-compatible endpoint
 
 ## Prerequisites
 
@@ -55,13 +55,32 @@ cp .env.example .env
 nano .env
 ```
 
-#### Configuration Options
+#### Configuration for Databricks Foundation Models
 
-**For OpenAI:**
+To use Databricks Foundation Models:
+
+1. **Generate a Personal Access Token**: Follow the [Databricks authentication documentation](https://docs.databricks.com/en/dev-tools/auth/pat.html) to create a personal access token
+2. **Find your serving endpoint URL**: In your Databricks workspace, go to Serving and note the endpoint URL (e.g., `https://your-workspace.cloud.databricks.com/serving-endpoints`)
+3. **Configure `.env`**:
+
+```bash
+NEO4J_URL=neo4j+s://xxx.databases.neo4j.io:7687
+NEO4J_USERNAME=neo4j
+NEO4J_PASSWORD=your_neo4j_password
+NEO4J_DATABASE=neo4j
+
+# Databricks configuration
+OPENAI_API_KEY=dapi1234567890abcdef  # Your Databricks PAT token
+OPENAI_BASE_URL=https://your-workspace.cloud.databricks.com/serving-endpoints
+MODEL_NAME=databricks-claude-sonnet-4-5
+```
+
+#### Configuration for OpenAI
+
 ```bash
 NEO4J_URL=bolt://localhost:7687
 NEO4J_USERNAME=neo4j
-NEO4J_PASSWORD=your_password
+NEO4J_PASSWORD=your_neo4j_password
 NEO4J_DATABASE=neo4j
 
 OPENAI_API_KEY=sk-...
@@ -69,23 +88,12 @@ OPENAI_BASE_URL=https://api.openai.com/v1
 MODEL_NAME=gpt-4
 ```
 
-**For Databricks Foundation Models:**
-```bash
-NEO4J_URL=neo4j+s://xxx.databases.neo4j.io:7687
-NEO4J_USERNAME=neo4j
-NEO4J_PASSWORD=your_password
-NEO4J_DATABASE=neo4j
+#### Configuration for Ollama (Local)
 
-OPENAI_API_KEY=your_databricks_token
-OPENAI_BASE_URL=https://your-workspace.cloud.databricks.com/serving-endpoints
-MODEL_NAME=databricks-claude-sonnet-4-5
-```
-
-**For Ollama (local):**
 ```bash
 NEO4J_URL=bolt://localhost:7687
 NEO4J_USERNAME=neo4j
-NEO4J_PASSWORD=your_password
+NEO4J_PASSWORD=your_neo4j_password
 NEO4J_DATABASE=neo4j
 
 OPENAI_API_KEY=not-needed
@@ -106,53 +114,6 @@ uv run query_neo4j.py
 # Or activate venv first
 source .venv/bin/activate
 python query_neo4j.py
-```
-
-Example session:
-```
-✓ Connected to Neo4j at bolt://localhost:7687
-✓ London Transport data found:
-  - Stations: 302
-  - Connections: 732
-✓ LLM configured: gpt-4
-✓ Cypher QA chain created
-
-================================================================================
-INTERACTIVE MODE
-================================================================================
-
-Ask questions about the London Transport Network.
-Type 'exit', 'quit', or press Ctrl+C to exit.
-
-Example questions:
-  - How many stations are in zone 1?
-  - Which stations does the Bakerloo line connect?
-  - What tube lines go through Baker Street?
-  - Which stations have the most connections?
-  - Find a path between King's Cross and Victoria
-
-Your question: How many stations are in zone 1?
-================================================================================
-QUESTION: How many stations are in zone 1?
-================================================================================
-
-> Entering new GraphCypherQAChain chain...
-Generated Cypher:
-MATCH (s:Station {zone: '1'})
-RETURN count(s) AS station_count
-
-Full Context:
-[{'station_count': 52}]
-
-> Finished chain.
-
-================================================================================
-RESULT:
-================================================================================
-[{'station_count': 52}]
-
-Your question: exit
-Goodbye!
 ```
 
 ### Single Question Mode
@@ -200,18 +161,6 @@ uv run query_neo4j.py --show-schema
 - "What's a route from Paddington to Liverpool Street?"
 - "Show me stations I should avoid during rush hour based on connection counts"
 
-## Project Structure
-
-```
-agents/
-├── README.md              # This file
-├── pyproject.toml         # Project dependencies (uv format)
-├── .env.example           # Environment variable template
-├── .env                   # Your configuration (create from .env.example)
-├── query_neo4j.py         # Main script
-└── .venv/                 # Virtual environment (created by uv)
-```
-
 ## How It Works
 
 This program uses a **text-to-Cypher pipeline**:
@@ -255,76 +204,6 @@ The prompt instructs the LLM to use modern Neo4j 5.x syntax:
 - Review the generated Cypher to understand results
 - For complex questions, break them into simpler parts
 
-## Troubleshooting
-
-### "Error: NEO4J_PASSWORD not set in .env file"
-- Ensure you've created `.env` from `.env.example`
-- Check that `NEO4J_PASSWORD` is set in `.env`
-
-### "Error connecting to Neo4j"
-- Verify Neo4j is running
-- Check `NEO4J_URL` is correct (`bolt://host:7687` or `neo4j+s://host:7687`)
-- Confirm credentials are correct
-
-### "No data found"
-- Run the ETL notebook first: `../notebooks/load_london_transport.ipynb`
-- Verify you're connecting to the correct database
-
-### "Error: OPENAI_API_KEY not set"
-- Set `OPENAI_API_KEY` in `.env`
-- For Databricks, use your personal access token
-- For Ollama, can be set to any value (e.g., "not-needed")
-
-### Invalid Cypher Generated
-- The question may be too ambiguous
-- Try rephrasing with more specific details
-- Check that you're asking about data that exists
-
-### LLM Connection Errors
-- Verify `OPENAI_BASE_URL` is correct
-- For Databricks: `https://your-workspace.cloud.databricks.com/serving-endpoints`
-- For Ollama: `http://localhost:11434/v1`
-- For OpenAI: `https://api.openai.com/v1`
-
-## Development
-
-### Running with `uv run`
-
-The recommended way to run the script (automatically manages the venv):
-
-```bash
-uv run query_neo4j.py
-```
-
-### Installing the package
-
-Install as an editable package:
-
-```bash
-uv pip install -e .
-```
-
-Then run from anywhere:
-
-```bash
-query-neo4j
-```
-
-### Adding dependencies
-
-```bash
-uv add package-name
-```
-
-## Differences from Databricks Notebook
-
-| Feature | Notebook | This Script |
-|---------|----------|-------------|
-| Configuration | `dbutils.widgets` | `.env` file |
-| Secrets | `dbutils.secrets` | `.env` file |
-| Python Runtime | Databricks cluster | Local Python (uv) |
-| Interface | Notebook cells | CLI (interactive/single) |
-| Execution | Cell-by-cell | Continuous program |
 
 ## References
 

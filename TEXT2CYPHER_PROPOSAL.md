@@ -540,6 +540,18 @@ neo4j-databricks-etl/
 
 ---
 
+### Running Locally
+
+The text-to-Cypher agent can also be run as a standalone Python program outside of Databricks. This is useful for local development, testing, or integration into other applications.
+
+See [`agents/README.md`](agents/README.md) for instructions on:
+- Installing and running with `uv`
+- Configuring with `.env` files
+- Using with OpenAI, Databricks Foundation Models, or Ollama
+- Interactive and single-question modes
+
+---
+
 ### Phase 7: Add Visualizations - PENDING
 
 **Status:** Not started - will implement after Phase 6 is complete and basic agent is validated
