@@ -313,55 +313,11 @@ Databricks notebooks must be properly structured Jupyter notebook JSON files (.i
 **How to fix:**
 1. **Never** copy/paste raw .ipynb JSON content into Databricks
 2. **Always** use Databricks "Import" feature (File → Import) for .ipynb files
-3. When creating notebooks programmatically, you have two options:
+3. When creating notebooks programmatically, use the Databricks-native format shown below
 
-**Option A: Standard Jupyter Notebook (Recommended)**
-Create a standard Jupyter notebook and let Databricks convert it on import. This is simpler and Databricks will automatically add its metadata.
+**Databricks Notebook Format (Required)**
 
-```python
-import json
-
-notebook = {
-    "cells": [
-        {
-            "cell_type": "code",
-            "execution_count": 0,
-            "metadata": {},
-            "outputs": [],
-            "source": ["print('Hello')"]
-        }
-    ],
-    "metadata": {
-        "kernelspec": {
-            "display_name": "Python 3",
-            "language": "python",
-            "name": "python3"
-        },
-        "language_info": {
-            "name": "python"
-        }
-    },
-    "nbformat": 4,
-    "nbformat_minor": 4
-}
-
-with open('notebook.ipynb', 'w') as f:
-    json.dump(notebook, f, indent=1)
-```
-
-**Key requirements for standard notebooks:**
-- `execution_count`: Use `0` (not `null` or `None`)
-- `language_info`: Only needs `"name": "python"` (no version field needed)
-- `nbformat`: 4
-- `nbformat_minor`: 4
-- Each cell needs: `cell_type`, `metadata`, `source`, `outputs` (for code cells)
-
-**Option B: Databricks-Native Notebook (Advanced)**
-Create a notebook with Databricks-specific metadata. This is what Databricks generates internally.
-
-Databricks adds these metadata fields:
-- **Notebook level**: `application/vnd.databricks.v1+notebook` with language, notebookMetadata, widgets, etc.
-- **Cell level**: Each cell gets `application/vnd.databricks.v1+cell` with a unique `nuid`, showTitle, tableResultSettingsMap, etc.
+Databricks notebooks require specific metadata that standard Jupyter notebooks don't have. Here's the structure that works in Databricks:
 
 ```python
 import uuid
@@ -384,6 +340,20 @@ notebook = {
             },
             "outputs": [],
             "source": ["print('Hello')"]
+        },
+        {
+            "cell_type": "markdown",
+            "metadata": {
+                "application/vnd.databricks.v1+cell": {
+                    "cellMetadata": {},
+                    "inputWidgets": {},
+                    "nuid": str(uuid.uuid4()),
+                    "showTitle": False,
+                    "tableResultSettingsMap": {},
+                    "title": ""
+                }
+            },
+            "source": ["# Markdown cell"]
         }
     ],
     "metadata": {
@@ -411,9 +381,35 @@ notebook = {
     "nbformat": 4,
     "nbformat_minor": 4
 }
+
+with open('notebook.ipynb', 'w') as f:
+    json.dump(notebook, f, indent=1)
 ```
 
-**Recommendation**: Use Option A (standard Jupyter) unless you specifically need Databricks-native features. Databricks will automatically convert standard notebooks on import.
+**Required metadata fields:**
+
+**Notebook level:**
+- `application/vnd.databricks.v1+notebook`: Container for Databricks-specific notebook settings
+  - `language`: "python"
+  - `notebookMetadata`: `{"pythonIndentUnit": 4}`
+  - `notebookName`: Filename without extension
+  - `widgets`: `{}` (widget configuration)
+  - `computePreferences`, `dashboards`, `environmentMetadata`, `inputWidgetPreferences`: `null` or `[]`
+
+**Cell level (EVERY cell must have this):**
+- `application/vnd.databricks.v1+cell`: Container for Databricks-specific cell settings
+  - `nuid`: Unique identifier (UUID) - use `str(uuid.uuid4())`
+  - `showTitle`: `false`
+  - `title`: `""`
+  - `cellMetadata`: `{}`
+  - `inputWidgets`: `{}`
+  - `tableResultSettingsMap`: `{}`
+
+**Standard fields:**
+- `execution_count`: `0` for code cells
+- `language_info`: `{"name": "python"}` (no version field)
+- `nbformat`: `4`
+- `nbformat_minor`: `4`
 
 ## Working Approach for New Features and Changes
 
