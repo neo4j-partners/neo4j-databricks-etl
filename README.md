@@ -1,248 +1,246 @@
-# Databricks to Neo4j ETL Pipeline
-
-Load London Transport Network data from Databricks into Neo4j using Delta Lake and PySpark.
+# Databricks to Neo4j ETL Pipeline: From Lakehouse to Knowledge Graph with Natural Language Agent
 
 ## Overview
 
-This project demonstrates how to ETL data from CSV files in Databricks Unity Catalog into Neo4j graph database using:
-- **Delta Lake** for intermediate data storage
-- **PySpark** for data transformations
-- **Neo4j Spark Connector** for loading graph data
+This project demonstrates a production-ready architecture for transforming raw data into an intelligent, queryable Knowledge Graph, complete with a natural language interface. By combining the **Databricks Lakehouse** for robust data engineering with **Neo4j's** graph database capabilities, we create a pipeline that is both scalable and semantically rich.
 
-**Dataset:** London Transport Network with 302 stations and tube line connections
+The solution implements a complete **AI Application** stack. Raw CSV files are ingested into **Delta Lake** for governed validation, transformed into a graph structure using the high-performance **Neo4j Spark Connector**, and then exposed to end-users via a **Generative AI agent** that translates natural language questions into precise Cypher database queries. This enables users to interact with complex graph data using plain English, democratizing access to insights.
 
-## Quick Start
+**Key Technologies:**
+- **Databricks Unity Catalog:** Governed data management for files and tables, ensuring security and lineage.
+- **Delta Lake:** Provides ACID transactions, schema enforcement, and time travel capabilities for data reliability.
+- **PySpark:** Distributed data processing and type-safe transformations for scalable ETL.
+- **Neo4j Spark Connector:** High-throughput, parallelized graph ingestion for efficient data loading into Neo4j.
+- **LangChain & LLMs:** Framework for building conversational AI agents that understand natural language and generate Cypher queries.
+
+**Dataset:** London Transport Network (302 stations, 13 tube lines, geographic/zone data).
+
+## Setup
+
+This section outlines all the necessary steps to prepare your Databricks environment and Neo4j database for running the ETL pipeline and the natural language agent.
 
 ### Prerequisites
 
-1. **Databricks workspace** with Unity Catalog enabled
-2. **Neo4j database** 
-3. **Neo4j Spark Connector** library installed on cluster:
+Before you begin, ensure you have:
+1. **Databricks workspace** with Unity Catalog enabled.
+2. **Neo4j database** (Neo4j AuraDB instance recommended for ease of use, or a self-hosted instance).
+3. **Neo4j Spark Connector** library installed on your Databricks cluster:
    - Maven coordinates: `org.neo4j:neo4j-connector-apache-spark_2.12:5.3.1_for_spark_3`
-4. **Databricks Secrets** configured:
+4. **Databricks Secrets** configured to securely store your Neo4j password:
    ```bash
-   # Create secrets scope
+   # Create secrets scope (if it doesn't exist)
    databricks secrets create-scope neo4j
 
-   # Add credentials
+   # Add your Neo4j password to the 'neo4j' scope under the key 'password'
    databricks secrets put-secret neo4j password
    ```
 
 ### Setup Steps
 
-#### 1. Setup Unity Catalog Volume Using the UI and Upload CSV Files
+#### 1. Setup Unity Catalog Volume and Upload CSV Files
 
-1. Navigate to **Catalog** in the left sidebar
-2. Click the **+** button in the top right
-3. Select **Create a catalog**
+The first step is to establish a governed storage location for your raw data within Databricks Unity Catalog and then upload the London Transport CSV files.
+
+1. Navigate to **Catalog** in the left sidebar of your Databricks workspace.
+2. Click the **+ Add** button (often a plus sign `+` icon) in the top right.
+3. Select **Create a catalog**.
 4. In the dialog:
    - **Catalog name:** `london_catalog`
    - **Type:** Standard
-   - **Storage location:** Select default external location and name it `london_catalog`
-5. Click **Create**
-6. Navigate to the catalog and create a schema:
+   - **Storage location:** Select a default external location and name it `london_catalog`.
+5. Click **Create**.
+6. Navigate into the newly created `london_catalog` and create a schema:
     - **Schema name:** `london_schema`
-    - **Storage location:** Select default external location and name it `london_schema`
-7. Navigate to the schema and click **+** > **Create a volume**
-    - **Volume name:** `datasets`
-    - **Storage location:** Select default external location and name it `datasets`
-9. Upload files from `datasets/csv_files/london_transport/` to the volume at `/Volumes/london_catalog/london_schema/london_transport`:
-   - `London_stations.csv` (302 stations)
-   - `London_tube_lines.csv` (tube line connections)
+    - **Storage location:** Select a default external location and name it `london_schema`.
+7. Navigate into the `london_schema` and click **+ Add** > **Create a volume**.
+    - **Volume name:** `london_transport`
+    - **Storage location:** Select a default external location and name it `london_transport`.
+8. Upload files from the `datasets/csv_files/london_transport/` directory (from this repository) to the created volume. The target path in Databricks will be `/Volumes/london_catalog/london_schema/london_transport`.
+   - Upload `London_stations.csv` (contains 302 station records).
+   - Upload `London_tube_lines.csv` (contains tube line connection records).
 
-Your final volume should look like this:
+Your final Unity Catalog volume structure should appear similar to this:
 
 ![Final Volume](images/final_volume.png)
 
 
-#### 2. Create a Databricks Cluster
+#### 2. Create and Configure a Databricks Cluster
 
-1. Navigate to **Compute** in your Databricks workspace
-2. Click **Create Compute**
-3. Configure the cluster with:
-   - **Cluster name**: "Neo4j-London-Transport-Cluster" (or your preferred name)
-   - **Cluster mode**: Standard
-   - **Access mode**: **Dedicated (formerly: Single user)** - ⚠️ **REQUIRED** for Neo4j Spark Connector
-   - **Databricks Runtime**: 13.3 LTS or higher (Spark 3.x)
-   - **Node type**: Standard_DS3_v2 (14 GB Memory, 4 Cores)
-   - **Workers**: Enable "Single node" (sufficient for this demo with 302 stations)
-4. Click **Create**
+A Databricks cluster is required to run the PySpark notebooks. Pay close attention to the access mode and library installations.
 
-**Install required libraries:**
+1. Navigate to **Compute** in your Databricks workspace.
+2. Click **Create Compute**.
+3. Configure the cluster with the following settings:
+   - **Cluster name**: "Neo4j-London-Transport-Cluster" (or a name of your choice).
+   - **Cluster mode**: Standard.
+   - **Access mode**: **Dedicated (formerly: Single user)** - ⚠️ **This is REQUIRED** for the Neo4j Spark Connector to function correctly. The connector does **NOT** work in Shared or No Isolation Shared access modes.
+   - **Databricks Runtime Version**: 13.3 LTS or higher (ensures Spark 3.x compatibility).
+   - **Node type**: Standard_DS3_v2 (recommended 14 GB Memory, 4 Cores for this demo).
+   - **Workers**: Enable "Single node" for this demonstration (sufficient for the London Transport dataset).
+4. Click **Create**.
 
-After the cluster is created, install the following libraries:
+**Install required libraries on the cluster:**
 
-**Maven Library** (Neo4j Spark Connector):
-- Click on your cluster → **Libraries** tab
-- Click **Install New** → Select **Maven**
-- Enter coordinates: `org.neo4j:neo4j-connector-apache-spark_2.12:5.3.1_for_spark_3`
-- Click **Install** and wait for status: "Installed"
+Once the cluster is created and running, install the necessary libraries:
 
-**PyPI Library** (Neo4j Python Driver):
-- Click **Install New** → Select **PyPI**
-- Enter package name: `neo4j==6.0.2`
-- Click **Install** and wait for status: "Installed"
+**Maven Library** (for the Neo4j Spark Connector):
+- Click on your cluster's name → navigate to the **Libraries** tab.
+- Click **Install New** → Select **Maven** as the library source.
+- Enter the Maven coordinates: `org.neo4j:neo4j-connector-apache-spark_2.12:5.3.1_for_spark_3`.
+- Click **Install** and wait for the library status to show "Installed".
 
-**Important Notes:**
-- ⚠️ The Neo4j Spark Connector does **NOT** work in Shared access mode
-- Restart the cluster if needed to ensure libraries are loaded
+**PyPI Libraries** (for the Neo4j Python Driver and LangChain components):
+- Click **Install New** → Select **PyPI** as the library source.
+- Enter package name: `neo4j==6.0.2`. Click **Install**.
+- Repeat for `langchain`, `langchain-neo4j`, `langchain-openai`.
+
+**Important Notes on Cluster Configuration:**
+- If you change the cluster access mode or install new libraries, a cluster restart might be required to ensure all dependencies are correctly loaded.
 
 
-#### 3. Upload Notebook to Databricks
+#### 3. Upload Notebooks to Databricks Workspace
 
-1. In Databricks, navigate to **Workspace** in the left sidebar
-2. Navigate to **Users** > **your.email@domain.com** (your username)
-3. Create a new folder (e.g., `neo4j-databricks-etl`)
-4. Inside that folder, create a `notebooks` subfolder
-5. Upload `notebooks/load_london_transport.ipynb` to this location
+Upload the provided PySpark notebooks into your Databricks workspace.
 
-Your workspace structure should look like this:
+1. In Databricks, navigate to **Workspace** in the left sidebar.
+2. Navigate to your user directory: **Users** > `your.email@domain.com` (this is typically your username).
+3. Create a new folder for this project (e.g., `neo4j-databricks-etl`).
+4. Inside that new folder, create a `notebooks` subfolder.
+5. Upload the following notebooks from this repository's `notebooks/` directory to this location:
+   - `load_london_transport.ipynb` (the ETL pipeline notebook)
+   - `query_london_transport.ipynb` (the natural language agent notebook)
+
+Your workspace structure should resemble this:
 
 ![Notebook Setup](images/notebook_setup.png)
 
-**Note:** Your workspace may look different depending on other folders you've created.
+**Note:** The exact appearance may vary based on other folders you've created in your workspace.
 
-#### 4. Configure Notebook
+## Running the ETL Pipeline Notebook
 
-Open the uploaded notebook and update the widgets with your values:
+This section guides you through executing the `load_london_transport.ipynb` notebook to ingest the London Transport data into Neo4j.
+
+### Configure and Run `load_london_transport.ipynb`
+
+Open the `load_london_transport.ipynb` notebook in your Databricks workspace. You will need to update the configuration widgets at the beginning of the notebook with your specific Neo4j connection details and Unity Catalog paths.
 
 ```python
-# Neo4j connection
-NEO4J_URL = "bolt://localhost:7687"  # Your Neo4j URL
-NEO4J_DB  = "neo4j"                   # Your database name
+# Neo4j connection details
+NEO4J_URL = "bolt://localhost:7687"  # Replace with your Neo4j instance's Bolt URL
+NEO4J_DB  = "neo4j"                   # Replace with your Neo4j database name (e.g., 'neo4j', 'aura')
 
-# Unity Catalog paths
+# Unity Catalog paths based on your setup in Step 1
 BASE_PATH = "/Volumes/london_catalog/london_schema/london_transport"
 CATALOG = "london_catalog"
 SCHEMA = "london_schema"
 ```
 
-#### 5. Run Notebook
-
-Execute all cells in order:
-1. Configure connection
-2. Test Neo4j connectivity
-3. Load CSVs to Delta Lake
-4. Write Station nodes to Neo4j
-5. Create tube line relationships
-6. Validate results
+Once configured, execute all cells in the notebook sequentially. The notebook performs the following steps:
+1.  **Configures Connection:** Sets up Spark session properties for Neo4j.
+2.  **Tests Neo4j Connectivity:** Verifies the connection to your Neo4j instance.
+3.  **Loads CSVs to Delta Lake:** Ingests raw CSV data into reliable Delta tables.
+4.  **Writes Station Nodes to Neo4j:** Creates all `(:Station)` nodes in your graph.
+5.  **Creates Tube Line Relationships:** Dynamically creates line-specific relationships (e.g., `[:BAKERLOO]`, `[:CENTRAL]`) between stations.
+6.  **Validates Results:** Runs Cypher queries to confirm data integrity and completeness in Neo4j.
 
 ### Expected Results
 
-After successful execution:
-- **302 Station nodes** in Neo4j with properties: name, zone, postcode, coordinates
-- **All tube line relationships** connecting stations bidirectionally (Bakerloo, Central, Circle, District, etc.)
-- **Line-specific relationship types** for each tube line (e.g., :BAKERLOO, :CENTRAL, :CIRCLE)
-- **Delta Lake tables** for stations and tube lines
+Upon successful execution of the `load_london_transport.ipynb` notebook, your Neo4j database will contain:
+-   **302 Station nodes:** Each `(:Station)` node will have properties like `station_id`, `name`, `latitude`, `longitude`, `zone`, and `postcode`.
+-   **All tube line relationships:** Bidirectional relationships connecting stations for each of the London tube lines (e.g., Bakerloo, Central, Circle, District, etc.). These relationships adhere to the best practice of using **line-specific relationship types** (e.g., `:BAKERLOO`, `:CENTRAL`).
+-   **Delta Lake tables:** Managed Delta tables for `london_stations` and `london_tube_lines` will exist in your Unity Catalog.
 
-**Note:** All validation queries are included in Step 15 of the notebook.
+**Note:** The notebook includes comprehensive validation queries in its final step (Step 15) to help you verify the loaded data.
 
 ## Exploring and Querying the Data
 
+Once the London Transport Network data is loaded into Neo4j, you have powerful options for exploring and querying the graph, from visual tools to a natural language interface.
+
 ### Visual Exploration in Neo4j Aura
 
-After loading the data, you can visually explore the London Transport Network graph:
+For interactive visual analysis and understanding the graph structure, Neo4j Aura's built-in **Graph Explorer** is invaluable.
 
-**Guide:** See [EXPLORING_DATA.md](EXPLORING_DATA.md) for step-by-step instructions
+**Guide:** For detailed step-by-step instructions on visual exploration, refer to [EXPLORING_DATA.md](EXPLORING_DATA.md).
 
 **Quick Start:**
-1. Go to Neo4j Aura Console → Tools → **Explore**
-2. Connect to your instance
-3. Search pattern: `Station — (any) — Station`
-4. View the interactive graph visualization
+1.  Log in to your Neo4j Aura console.
+2.  Navigate to the **Tools** section and select **Explore**.
+3.  Connect to your Neo4j AuraDB instance.
+4.  In the search bar, try a simple pattern like `Station — (any) — Station` to see an interactive visualization of connected stations.
 
-**Features:**
-- Visual graph exploration with color-coded tube lines
-- Filter by station properties (zone, name, postcode)
-- Find shortest paths between stations
-- Identify major interchange stations
-- Custom perspectives and layouts
+**Key Features of Visual Exploration:**
+-   **Interactive Graph Visualization:** Visually inspect nodes and relationships, with different tube lines (relationship types) often color-coded for clarity.
+-   **Filtering & Search:** Easily filter stations by properties (zone, name, postcode) or search for specific stations.
+-   **Pathfinding:** Visually trace shortest paths between stations.
+-   **Network Analysis:** Identify major interchange stations or examine connectivity patterns.
 
----
+## Natural Language Query Agent (Text-to-Cypher)
 
-### Text-to-Cypher Agent
+This section details how to set up and use the natural language agent, implemented in `query_london_transport.ipynb`, to interact with your Neo4j graph using plain English questions. The primary goal of this agent is to democratize access to the rich insights stored within the graph by removing the technical barrier of learning Cypher, Neo4j's native query language. The agent leverages state-of-the-art Large Language Models (LLMs) served via Databricks Foundation Models, orchestrating a complex process to translate a user's natural language intent into precise Cypher queries, execute them against the Neo4j database, and then present the results back to the user in an easily understandable English format.
 
-After loading the data, you can query it using natural language with the **Text-to-Cypher Agent** notebook:
+### Setup: Databricks Foundation Model Serving Endpoint
 
-**Notebook:** `notebooks/query_london_transport.ipynb`
-
-**What it does:**
-- Ask questions in plain English about the London Transport Network
-- Automatically generates and executes Cypher queries
-- Displays results directly
-
-**Example questions:**
-- "How many stations are in zone 1?"
-- "Which stations does the Bakerloo line connect?"
-- "What tube lines go through Baker Street?"
-- "Which stations have the most connections?"
-- "Find a path between King's Cross and Victoria"
-- "Show me stations to avoid during rush hour"
-
----
-
-### Setup: Databricks Serving Endpoint
-
-Before using the Text-to-Cypher agent, set up a Databricks Foundation Model serving endpoint:
+The natural language agent relies on a Large Language Model (LLM) to perform the text-to-Cypher translation. We use **Databricks Foundation Model Serving** to host this LLM securely and scalably.
 
 #### 1. Navigate to Serving Endpoints
 
-1. In your Databricks workspace, click on **Serving** in the left sidebar (under AI/ML section)
-2. Click **Create serving endpoint** or use an existing endpoint
+1.  In your Databricks workspace, click on **Serving** in the left sidebar (under the AI/ML section).
+2.  Click **Create serving endpoint** to set up a new one, or select an existing endpoint if available.
 
 #### 2. Configure the Endpoint
 
-**Endpoint Configuration:**
-- **Name:** `databricks-claude-sonnet-4-5` (or your preferred model)
-- **Served Entity:** Select **Claude Sonnet 4.5** from Foundation Models or your preferred model
-- **Description:** Claude Sonnet 4.5 for text-to-Cypher generation
-
+When creating your serving endpoint, configure it as follows:
+-   **Endpoint Name:** Provide a descriptive name, e.g., `databricks-claude-sonnet-4-5` (or your preferred model's name).
+-   **Served Entity:** From the "Foundation Models" tab, select **Claude Sonnet 4.5** or another suitable code-generation-capable LLM.
+-   **Description:** Add a brief description, e.g., "Claude Sonnet 4.5 for text-to-Cypher generation."
 
 #### 3. Get Your Endpoint URL
 
-Once the endpoint is ready (status shows green checkmark "Ready"):
+Once the endpoint is successfully deployed and its status shows a green checkmark "Ready":
 
-1. Copy the **endpoint URL** from the top of the page
-   - Format: `https://adb-XXXXXXXXX.X.azuredatabricks.net/serving-endpoints/databricks-claude-sonnet-4-5/invocations`
-2. Note the **base URL** (without `/invocations`):
-   - Format: `https://adb-XXXXXXXXX.X.azuredatabricks.net/serving-endpoints`
+1.  Copy the **full endpoint URL** from the top of the endpoint details page.
+    -   Example Format: `https://adb-XXXXXXXXX.X.azuredatabricks.net/serving-endpoints/databricks-claude-sonnet-4-5/invocations`
+2.  From this, extract the **base URL** (the part before `/invocations`):
+    -   Example Format: `https://adb-XXXXXXXXX.X.azuredatabricks.net/serving-endpoints`
 
-#### 4. Configure the Notebook
+#### 4. Configure `query_london_transport.ipynb`
 
-Open `notebooks/query_london_transport.ipynb` and update the widgets:
+Open the `query_london_transport.ipynb` notebook in your Databricks workspace. You will need to update its configuration widgets to point to your newly created LLM serving endpoint.
 
-1. **Databricks Endpoint:** Enter your base URL
-   ```
-   https://adb-XXXXXXXXX.X.azuredatabricks.net/serving-endpoints
-   ```
+```python
+# Databricks Foundation Model Serving Endpoint details
+DB_MODEL_ENDPOINT_URL = "https://adb-XXXXXXXXX.X.azuredatabricks.net/serving-endpoints" # Your base URL
+DB_MODEL_NAME = "databricks-claude-sonnet-4-5" # Your endpoint name
+```
+The notebook is designed to automatically retrieve your Databricks token from the current notebook context for authentication with the serving endpoint.
 
-2. **Model Name:** Enter your endpoint name
-   ```
-   databricks-claude-sonnet-4-5
-   ```
+### Requirements for the Agent Notebook
 
-The notebook will automatically retrieve your Databricks token from the notebook context.
+To run the natural language agent successfully, ensure these are met:
+1.  **London Transport data loaded:** The `load_london_transport.ipynb` notebook must have been run successfully to populate your Neo4j graph.
+2.  **Python libraries installed** on the Databricks cluster (as described in Setup Step 2):
+    -   `langchain`
+    -   `langchain-neo4j`
+    -   `langchain-openai`
+    -   `neo4j`
+3.  **Databricks Foundation Model serving endpoint** configured and running (as described above).
 
----
+### Usage of the Natural Language Agent
 
-### Requirements
+The `query_london_transport.ipynb` notebook provides an interactive environment to test the text-to-Cypher agent.
 
-1. **London Transport data loaded** - Run `load_london_transport.ipynb` first
-2. **Python libraries installed** on cluster:
-   - `langchain`
-   - `langchain-neo4j`
-   - `langchain-openai`
-   - `neo4j`
-3. **Databricks Foundation Model endpoint** configured (see setup above)
+1.  Run all cells in the initial configuration section of the notebook.
+2.  Verify that the Neo4j connection is successful and that London Transport data is detected in the graph.
+3.  Proceed to the interactive cells, where you can input your questions.
+4.  Try the provided example questions or formulate your own. The agent will display the generated Cypher query (due to verbose mode) before executing it and presenting the natural language result.
 
----
-
-### Usage
-
-1. Run all cells in the configuration section
-2. Verify Neo4j connection and data exists
-3. Try the example questions or modify the interactive cell
-4. Review generated Cypher queries in the output (verbose mode enabled)
+**Example questions you can ask:**
+-   "How many stations are in zone 1?"
+-   "Which stations does the Bakerloo line connect?"
+-   "What tube lines go through Baker Street?"
+-   "Which stations have the most connections?"
+-   "Find a path between King's Cross and Victoria"
+-   "Show me stations to avoid during rush hour"
 
 ## Project Structure
 
@@ -273,72 +271,71 @@ neo4j-databricks-etl/
 ### Data Flow
 
 ```
-CSV files → Unity Catalog Volume → Delta Lake tables → PySpark → Neo4j
+Raw CSV files (Unity Catalog Volume) → Delta Lake Tables (Unity Catalog) → PySpark (Transform) → Neo4j (Graph Database) → LangChain (Natural Language Agent) → User
 ```
 
 ### Delta Lake Tables
 
 **Stations Table:**
-- Columns: station_id, name, latitude, longitude, zone, postcode
-- Row count: 302
+- Columns: `station_id` (Integer), `name` (String), `latitude` (Double), `longitude` (Double), `zone` (String), `postcode` (String).
+- Row count: 302.
 
 **Tube Lines Table:**
-- Columns: Tube_Line, From_Station, To_Station
-- Row count: ~300 connections
+- Columns: `Tube_Line` (String), `From_Station` (String), `To_Station` (String).
+- Row count: Approximately 300 connections.
 
 ### Neo4j Graph Model
 
 **Nodes:**
-- `(:Station)` with properties: station_id, name, latitude, longitude, zone, postcode
+-   `(:Station)` label with properties: `station_id`, `name`, `latitude`, `longitude`, `zone`, `postcode`.
 
 **Relationships:**
-- Line-specific relationship types for each tube line (bidirectional)
-- Examples: `:BAKERLOO`, `:CENTRAL`, `:CIRCLE`, `:DISTRICT`, `:HAMMERSMITH_AND_CITY`, `:JUBILEE`, `:METROPOLITAN`, `:NORTHERN`, `:PICCADILLY`, `:VICTORIA`, `:WATERLOO_AND_CITY`
-- Format: `(:Station)-[:TUBE_LINE]->(:Station)`
-- **Neo4j Best Practice:** Uses relationship types (not properties) for better performance and query clarity
+-   **Line-specific relationship types** for each tube line. These are inherently bidirectional due to the loading process.
+-   **Examples:** `:BAKERLOO`, `:CENTRAL`, `:CIRCLE`, `:DISTRICT`, `:HAMMERSMITH_AND_CITY`, `:JUBILEE`, `:METROPOLITAN`, `:NORTHERN`, `:PICCADILLY`, `:VICTORIA`, `:WATERLOO_AND_CITY`.
+-   **Format:** `(:Station)-[:TUBE_LINE]->(:Station)`.
+-   **Neo4j Best Practice:** Using distinct relationship types (not properties on a generic relationship) offers superior query performance and clarity by leveraging Neo4j's native indexing of relationship types.
 
 ### Key Features
 
-- **Intermediate Delta Lake storage** for data validation
-- **Type-safe transformations** using PySpark
-- **Line-specific relationship types** - creates distinct relationship types for each tube line (following Neo4j best practices)
-- **Batch relationship creation** using Neo4j Spark Connector
-- **Comprehensive validation queries** built into the notebook
-- **Index creation** for performance
+-   **Intermediate Delta Lake storage:** Ensures data quality, ACID compliance, and schema enforcement before graph ingestion.
+-   **Type-safe transformations:** Implemented using PySpark to maintain data integrity throughout the ETL process.
+-   **Line-specific relationship types:** A best practice in Neo4j modeling that transforms data values into schema elements for performance and semantic clarity.
+-   **Batch relationship creation:** Utilizes the Neo4j Spark Connector for efficient, parallelized loading of graph data.
+-   **Comprehensive validation queries:** Built into the `load_london_transport.ipynb` notebook to verify successful graph population.
+-   **Index creation:** Automated indexing on key node properties (e.g., `station_id`, `name`) for optimized query performance in Neo4j.
 
 ## Troubleshooting
 
 ### Connection Issues
 
 **Error:** `Connection refused`
-- Verify Neo4j is running
-- Check firewall allows port 7687
-- Confirm URL format: `bolt://host:7687` or `neo4j+s://instance.databases.neo4j.io:7687`
+-   **Verify Neo4j is running:** Ensure your Neo4j instance is active and accessible.
+-   **Check firewall:** Confirm that network firewalls allow outgoing connections from your Databricks cluster to Neo4j's Bolt port (default 7687).
+-   **Confirm URL format:** Double-check that your Neo4j URL is correctly formatted (e.g., `bolt://your_host:7687` or `neo4j+s://your_aura_instance.databases.neo4j.io:7687`).
 
 **Error:** `Authentication failed`
-- Verify Databricks Secrets are configured correctly
-- Check username/password in Databricks Secrets scope
+-   **Verify Databricks Secrets:** Ensure your `neo4j` scope and `password` key are correctly configured in Databricks Secrets.
+-   **Check credentials:** Confirm the username and password stored in Databricks Secrets match your Neo4j database credentials.
 
 ### File Issues
 
 **Error:** `File not found`
-- Verify Unity Catalog volume path: `/Volumes/catalog/schema/volume`
-- Confirm CSV files are uploaded to volume
-- Check file permissions
+-   **Verify Unity Catalog volume path:** Ensure the `BASE_PATH` in your notebooks accurately reflects the Unity Catalog volume path (e.g., `/Volumes/london_catalog/london_schema/london_transport`).
+-   **Confirm CSV files uploaded:** Double-check that `London_stations.csv` and `London_tube_lines.csv` have been successfully uploaded to the specified Unity Catalog volume.
+-   **Check file permissions:** Ensure your Databricks cluster user has appropriate read permissions on the Unity Catalog volume.
 
 ### Data Issues
 
 **Error:** `Relationship creation failed`
-- Ensure Station nodes exist before creating relationships
-- Verify station names match exactly between CSVs
-- Check for trailing spaces or case mismatches
+-   **Node existence:** Verify that `(:Station)` nodes corresponding to the `From_Station` and `To_Station` names exist in Neo4j *before* attempting to create relationships.
+-   **Data consistency:** Ensure station names in `London_tube_lines.csv` exactly match the `name` property of `(:Station)` nodes. Check for subtle differences like capitalization, extra spaces, or special characters.
 
 ## Performance Tips
 
-1. **Batch relationship creation** - Process in chunks for large datasets
-2. **Create indexes first** - Before loading relationships
-3. **Use Delta Lake caching** - Cache tables used multiple times
-4. **Monitor Spark UI** - Check for data skew or memory issues
+1.  **Batch relationship creation:** For large datasets, process relationships in manageable chunks to optimize transaction size and network overhead.
+2.  **Create indexes first:** Always create indexes on node properties (e.g., `station_id`, `name`) before loading relationships. This significantly speeds up the node lookup required during relationship creation.
+3.  **Use Delta Lake caching:** If you perform multiple reads from the same Delta tables within your Spark job, consider caching them (`spark.table(TABLE_NAME).cache()`) to improve performance.
+4.  **Monitor Spark UI:** Regularly check the Spark UI for your cluster during job execution. Look for signs of data skew, excessive shuffle operations, or memory issues that might be bottlenecks.
 
 ## License
 
@@ -346,4 +343,4 @@ Sample data from Transport for London. Educational purposes only.
 
 ---
 
-**Built with:** Databricks | Delta Lake | PySpark | Neo4j Spark Connector
+**Built with:** Databricks | Delta Lake | PySpark | Neo4j Spark Connector | LangChain
