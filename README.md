@@ -16,17 +16,16 @@ This project demonstrates how to ETL data from CSV files in Databricks Unity Cat
 ### Prerequisites
 
 1. **Databricks workspace** with Unity Catalog enabled
-2. **Neo4j database** (Aura free tier or self-hosted)
+2. **Neo4j database** 
 3. **Neo4j Spark Connector** library installed on cluster:
    - Maven coordinates: `org.neo4j:neo4j-connector-apache-spark_2.12:5.3.1_for_spark_3`
 4. **Databricks Secrets** configured:
    ```bash
    # Create secrets scope
-   databricks secrets create-scope --scope neo4j-creds
+   databricks secrets create-scope --scope neo4j
 
    # Add credentials
    databricks secrets put --scope neo4j-creds --key username
-   databricks secrets put --scope neo4j-creds --key password
    ```
 
 ### Setup Steps
@@ -35,7 +34,7 @@ This project demonstrates how to ETL data from CSV files in Databricks Unity Cat
 
 ```sql
 -- Create volume in Databricks SQL
-CREATE VOLUME IF NOT EXISTS main.default.london_transport;
+CREATE VOLUME IF NOT EXISTS london_catalog.london_schema.london_transport;
 ```
 
 Upload files from `datasets/csv_files/london_transport/`:
@@ -52,9 +51,9 @@ NEO4J_URL = "bolt://localhost:7687"  # Your Neo4j URL
 NEO4J_DB  = "neo4j"                   # Your database name
 
 # Unity Catalog paths
-BASE_PATH = "/Volumes/main/default/london_transport"
-CATALOG = "main"
-SCHEMA = "default"
+BASE_PATH = "/Volumes/london_catalog/london_schema/london_transport"
+CATALOG = "london_catalog"
+SCHEMA = "london_schema"
 ```
 
 #### 3. Run Notebook
