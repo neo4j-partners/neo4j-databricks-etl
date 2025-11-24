@@ -313,13 +313,11 @@ Databricks notebooks must be properly structured Jupyter notebook JSON files (.i
 **How to fix:**
 1. **Never** copy/paste raw .ipynb JSON content into Databricks
 2. **Always** use Databricks "Import" feature (File → Import) for .ipynb files
-3. When creating notebooks programmatically, ensure proper structure:
-   - Valid JSON with `cells`, `metadata`, `nbformat`, and `nbformat_minor` keys
-   - Each cell must have `cell_type`, `metadata`, `source`, and `outputs` (for code cells)
-   - Metadata must include `language_info.version: "3.9.0"` (not 3.12 or other versions)
-   - Use `nbformat: 4` and `nbformat_minor: 4`
+3. When creating notebooks programmatically, you have two options:
 
-**Creating notebooks programmatically:**
+**Option A: Standard Jupyter Notebook (Recommended)**
+Create a standard Jupyter notebook and let Databricks convert it on import. This is simpler and Databricks will automatically add its metadata.
+
 ```python
 import json
 
@@ -327,7 +325,7 @@ notebook = {
     "cells": [
         {
             "cell_type": "code",
-            "execution_count": None,
+            "execution_count": 0,
             "metadata": {},
             "outputs": [],
             "source": ["print('Hello')"]
@@ -340,8 +338,7 @@ notebook = {
             "name": "python3"
         },
         "language_info": {
-            "name": "python",
-            "version": "3.9.0"
+            "name": "python"
         }
     },
     "nbformat": 4,
@@ -351,6 +348,72 @@ notebook = {
 with open('notebook.ipynb', 'w') as f:
     json.dump(notebook, f, indent=1)
 ```
+
+**Key requirements for standard notebooks:**
+- `execution_count`: Use `0` (not `null` or `None`)
+- `language_info`: Only needs `"name": "python"` (no version field needed)
+- `nbformat`: 4
+- `nbformat_minor`: 4
+- Each cell needs: `cell_type`, `metadata`, `source`, `outputs` (for code cells)
+
+**Option B: Databricks-Native Notebook (Advanced)**
+Create a notebook with Databricks-specific metadata. This is what Databricks generates internally.
+
+Databricks adds these metadata fields:
+- **Notebook level**: `application/vnd.databricks.v1+notebook` with language, notebookMetadata, widgets, etc.
+- **Cell level**: Each cell gets `application/vnd.databricks.v1+cell` with a unique `nuid`, showTitle, tableResultSettingsMap, etc.
+
+```python
+import uuid
+
+# Databricks-native notebook structure
+notebook = {
+    "cells": [
+        {
+            "cell_type": "code",
+            "execution_count": 0,
+            "metadata": {
+                "application/vnd.databricks.v1+cell": {
+                    "cellMetadata": {},
+                    "inputWidgets": {},
+                    "nuid": str(uuid.uuid4()),
+                    "showTitle": False,
+                    "tableResultSettingsMap": {},
+                    "title": ""
+                }
+            },
+            "outputs": [],
+            "source": ["print('Hello')"]
+        }
+    ],
+    "metadata": {
+        "application/vnd.databricks.v1+notebook": {
+            "computePreferences": None,
+            "dashboards": [],
+            "environmentMetadata": None,
+            "inputWidgetPreferences": None,
+            "language": "python",
+            "notebookMetadata": {
+                "pythonIndentUnit": 4
+            },
+            "notebookName": "my_notebook",
+            "widgets": {}
+        },
+        "kernelspec": {
+            "display_name": "Python 3",
+            "language": "python",
+            "name": "python3"
+        },
+        "language_info": {
+            "name": "python"
+        }
+    },
+    "nbformat": 4,
+    "nbformat_minor": 4
+}
+```
+
+**Recommendation**: Use Option A (standard Jupyter) unless you specifically need Databricks-native features. Databricks will automatically convert standard notebooks on import.
 
 ## Working Approach for New Features and Changes
 
