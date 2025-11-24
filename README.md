@@ -137,12 +137,42 @@ After successful execution:
 
 **Note:** All validation queries are included in Step 15 of the notebook.
 
+## Querying the Data
+
+### Text-to-Cypher Agent (NEW)
+
+After loading the data, you can query it using natural language with the **Text-to-Cypher Agent** notebook:
+
+**Notebook:** `notebooks/query_london_transport.ipynb`
+
+**What it does:**
+- Ask questions in plain English about the London Transport Network
+- Automatically generates and executes Cypher queries
+- Displays results directly
+
+**Example questions:**
+- "How many stations are in zone 1?"
+- "Which stations does the Bakerloo line connect?"
+- "What tube lines go through Baker Street?"
+- "Which stations have the most connections?"
+- "Find a path between King's Cross and Victoria"
+- "Show me stations to avoid during rush hour"
+
+**Requirements:**
+1. London Transport data loaded (run `load_london_transport.ipynb` first)
+2. Python libraries: `langchain`, `langchain-neo4j`, `langchain-openai`
+3. Databricks Foundation Models access
+
+**Setup:** See `TEXT2CYPHER_PROPOSAL.md` for detailed setup and implementation details.
+
 ## Project Structure
 
 ```
 neo4j-databricks-etl/
 ├── README.md                              # This file
+├── CLAUDE.md                              # Claude Code guidance
 ├── DBX_PORT_v2.md                         # Implementation plan and status
+├── TEXT2CYPHER_PROPOSAL.md                # Text-to-Cypher agent proposal
 ├── datasets/
 │   ├── csv_files/
 │   │   └── london_transport/
@@ -150,7 +180,8 @@ neo4j-databricks-etl/
 │   │       └── London_tube_lines.csv      # Tube connections
 │   └── README.md                          # Dataset documentation
 └── notebooks/
-    └── load_london_transport.ipynb        # Main ETL notebook
+    ├── load_london_transport.ipynb        # ETL notebook
+    └── query_london_transport.ipynb       # Text-to-Cypher agent (NEW)
 ```
 
 ## Implementation Details
