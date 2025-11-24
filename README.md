@@ -132,8 +132,10 @@ Execute all cells in order:
 After successful execution:
 - **302 Station nodes** in Neo4j with properties: name, zone, postcode, coordinates
 - **All tube line relationships** connecting stations bidirectionally (Bakerloo, Central, Circle, District, etc.)
-- **Dynamic relationship types** for each tube line (e.g., :BAKERLOO, :CENTRAL, :CIRCLE)
+- **Line-specific relationship types** for each tube line (e.g., :BAKERLOO, :CENTRAL, :CIRCLE)
 - **Delta Lake tables** for stations and tube lines
+
+**Note:** All validation queries are included in Step 15 of the notebook.
 
 ## Project Structure
 
@@ -175,51 +177,19 @@ CSV files → Unity Catalog Volume → Delta Lake tables → PySpark → Neo4j
 - `(:Station)` with properties: station_id, name, latitude, longitude, zone, postcode
 
 **Relationships:**
-- Dynamic relationship types for each tube line (bidirectional)
+- Line-specific relationship types for each tube line (bidirectional)
 - Examples: `:BAKERLOO`, `:CENTRAL`, `:CIRCLE`, `:DISTRICT`, `:HAMMERSMITH_AND_CITY`, `:JUBILEE`, `:METROPOLITAN`, `:NORTHERN`, `:PICCADILLY`, `:VICTORIA`, `:WATERLOO_AND_CITY`
 - Format: `(:Station)-[:TUBE_LINE]->(:Station)`
+- **Neo4j Best Practice:** Uses relationship types (not properties) for better performance and query clarity
 
 ### Key Features
 
 - **Intermediate Delta Lake storage** for data validation
 - **Type-safe transformations** using PySpark
-- **Dynamic relationship types** - automatically creates relationship types for each tube line
-- **Batch relationship creation** using custom Cypher
-- **Comprehensive validation queries**
+- **Line-specific relationship types** - creates distinct relationship types for each tube line (following Neo4j best practices)
+- **Batch relationship creation** using Neo4j Spark Connector
+- **Comprehensive validation queries** built into the notebook
 - **Index creation** for performance
-
-## Validation Queries
-
-Run these in Neo4j Browser:
-
-```cypher
-// Count all stations
-MATCH (s:Station)
-RETURN count(s) as total_stations;
-
-// Count all relationships by type
-MATCH ()-[r]->()
-RETURN type(r) as line, count(r) as connections
-ORDER BY connections DESC;
-
-// Find stations with most connections (across all lines)
-MATCH (s:Station)-[r]-()
-RETURN s.name, count(r) as total_connections
-ORDER BY total_connections DESC
-LIMIT 10;
-
-// Sample multi-line path query (e.g., Baker Street connections)
-MATCH (s:Station {name: 'Baker Street'})-[r]-(connected:Station)
-RETURN s.name, type(r) as tube_line, connected.name
-LIMIT 20;
-
-// Find paths between two stations across any lines
-MATCH path = shortestPath(
-  (from:Station {name: 'King\'s Cross St. Pancras'})-[*..5]-(to:Station {name: 'Victoria'})
-)
-RETURN path
-LIMIT 1;
-```
 
 ## Troubleshooting
 
