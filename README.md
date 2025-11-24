@@ -160,7 +160,7 @@ After loading the data, you can visually explore the London Transport Network gr
 
 ---
 
-### Text-to-Cypher Agent (NEW)
+### Text-to-Cypher Agent
 
 After loading the data, you can query it using natural language with the **Text-to-Cypher Agent** notebook:
 
