@@ -122,6 +122,77 @@ Major interchanges will have many connections (multiple colored edges):
 
 ---
 
+## Using Graph Data Science
+
+Neo4j Aura includes built-in Graph Data Science (GDS) capabilities to analyze your network and discover insights. Here's how to apply algorithms to identify important stations:
+
+### Step 1: Open Graph Data Science
+
+1. In the left sidebar, click the **Graph Data Science** icon (looks like interconnected nodes)
+2. You'll see the GDS panel open on the left side of the screen
+
+![Graph Data Science Panel](images/apply_gds.png)
+
+---
+
+### Step 2: Add Degree Centrality Algorithm
+
+Degree Centrality identifies the most connected stations (major hubs and interchanges):
+
+1. Click **Add algorithm** in the GDS panel
+2. From the algorithm dropdown, select **Degree Centrality**
+3. Read the description: "Degree centrality measures the number of incoming and outgoing relationships from a node"
+4. Click **Apply algorithm**
+
+![Degree Centrality Configuration](images/degree_centrality.png)
+
+The algorithm will run and calculate centrality scores for all 302 stations.
+
+---
+
+### Step 3: Apply Color Gradient
+
+After the algorithm completes, visualize the results:
+
+1. You'll see a success message: "652 scores added by Degree Centrality"
+2. Two options appear:
+   - **Size nodes based on scores** - Makes hub stations larger
+   - **Apply color gradient based on scores** - Colors nodes by importance
+3. Click **Apply color gradient based on scores**
+
+![Apply Color Gradient](images/apply_color_gradient.png)
+
+**Note:** Scores only exist within the visualization and are not written to the database.
+
+---
+
+### Step 4: View the Results
+
+Your graph will now display a color-coded visualization:
+
+- **Darker/brighter nodes** = Higher degree centrality (major interchanges like King's Cross, Oxford Circus, Bank)
+- **Lighter nodes** = Lower degree centrality (end-of-line or less connected stations)
+
+![GDS Color-Coded Results](images/apply_gds.png)
+
+This visualization immediately reveals:
+- **Major interchange stations** with 6+ tube line connections
+- **Network bottlenecks** where multiple lines converge
+- **Peripheral stations** with fewer connections
+
+---
+
+### Other Useful GDS Algorithms
+
+Try these algorithms for different insights:
+
+- **Betweenness Centrality** - Identifies stations that act as bridges between different parts of the network
+- **PageRank** - Finds stations that are connected to other important stations (transfer hubs)
+- **Community Detection (Louvain)** - Groups stations into geographic clusters
+- **Shortest Path** - Finds optimal routes between stations (available via right-click menu)
+
+---
+
 ## Perspectives
 
 Neo4j Aura Explore uses **Perspectives** to customize your view:
