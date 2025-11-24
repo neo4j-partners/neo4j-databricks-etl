@@ -22,28 +22,89 @@ This project demonstrates how to ETL data from CSV files in Databricks Unity Cat
 4. **Databricks Secrets** configured:
    ```bash
    # Create secrets scope
-   databricks secrets create-scope --scope neo4j
+   databricks secrets create-scope neo4j
 
    # Add credentials
-   databricks secrets put --scope neo4j-creds --key username
+   databricks secrets put-secret neo4j password
    ```
 
 ### Setup Steps
 
-#### 1. Upload CSV Files to Unity Catalog Volume
+#### 1. Setup Unity Catalog Volume Using the UI and Upload CSV Files
 
-```sql
--- Create volume in Databricks SQL
-CREATE VOLUME IF NOT EXISTS london_catalog.london_schema.london_transport;
-```
+1. Navigate to **Catalog** in the left sidebar
+2. Click the **+** button in the top right
+3. Select **Create a catalog**
+4. In the dialog:
+   - **Catalog name:** `london_catalog`
+   - **Type:** Standard
+   - **Storage location:** Select default external location and name it `london_catalog`
+5. Click **Create**
+6. Navigate to the catalog and create a schema:
+    - **Schema name:** `london_schema`
+    - **Storage location:** Select default external location and name it `london_schema`
+7. Navigate to the schema and click **+** > **Create a volume**
+    - **Volume name:** `datasets`
+    - **Storage location:** Select default external location and name it `datasets`
+9. Upload files from `datasets/csv_files/london_transport/` to the volume at `/Volumes/london_catalog/london_schema/london_transport`:
+   - `London_stations.csv` (302 stations)
+   - `London_tube_lines.csv` (tube line connections)
 
-Upload files from `datasets/csv_files/london_transport/`:
-- `London_stations.csv` (302 stations)
-- `London_tube_lines.csv` (tube line connections)
+Your final volume should look like this:
 
-#### 2. Configure Notebook
+![Final Volume](images/final_volume.png)
 
-Open `notebooks/load_london_transport.ipynb` and update:
+
+#### 2. Create a Databricks Cluster
+
+1. Navigate to **Compute** in your Databricks workspace
+2. Click **Create Compute**
+3. Configure the cluster with:
+   - **Cluster name**: "Neo4j-London-Transport-Cluster" (or your preferred name)
+   - **Cluster mode**: Standard
+   - **Access mode**: **Dedicated (formerly: Single user)** - ⚠️ **REQUIRED** for Neo4j Spark Connector
+   - **Databricks Runtime**: 13.3 LTS or higher (Spark 3.x)
+   - **Node type**: Standard_DS3_v2 (14 GB Memory, 4 Cores)
+   - **Workers**: Enable "Single node" (sufficient for this demo with 302 stations)
+4. Click **Create**
+
+**Install required libraries:**
+
+After the cluster is created, install the following libraries:
+
+**Maven Library** (Neo4j Spark Connector):
+- Click on your cluster → **Libraries** tab
+- Click **Install New** → Select **Maven**
+- Enter coordinates: `org.neo4j:neo4j-connector-apache-spark_2.12:5.3.1_for_spark_3`
+- Click **Install** and wait for status: "Installed"
+
+**PyPI Library** (Neo4j Python Driver):
+- Click **Install New** → Select **PyPI**
+- Enter package name: `neo4j==6.0.2`
+- Click **Install** and wait for status: "Installed"
+
+**Important Notes:**
+- ⚠️ The Neo4j Spark Connector does **NOT** work in Shared access mode
+- Restart the cluster if needed to ensure libraries are loaded
+
+
+#### 3. Upload Notebook to Databricks
+
+1. In Databricks, navigate to **Workspace** in the left sidebar
+2. Navigate to **Users** > **your.email@domain.com** (your username)
+3. Create a new folder (e.g., `neo4j-databricks-etl`)
+4. Inside that folder, create a `notebooks` subfolder
+5. Upload `notebooks/load_london_transport.ipynb` to this location
+
+Your workspace structure should look like this:
+
+![Notebook Setup](images/notebook_setup.png)
+
+**Note:** Your workspace may look different depending on other folders you've created.
+
+#### 4. Configure Notebook
+
+Open the uploaded notebook and update the widgets with your values:
 
 ```python
 # Neo4j connection
@@ -56,7 +117,7 @@ CATALOG = "london_catalog"
 SCHEMA = "london_schema"
 ```
 
-#### 3. Run Notebook
+#### 5. Run Notebook
 
 Execute all cells in order:
 1. Configure connection
