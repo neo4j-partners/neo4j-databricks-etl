@@ -131,7 +131,8 @@ Execute all cells in order:
 
 After successful execution:
 - **302 Station nodes** in Neo4j with properties: name, zone, postcode, coordinates
-- **Bakerloo line relationships** connecting stations bidirectionally
+- **All tube line relationships** connecting stations bidirectionally (Bakerloo, Central, Circle, District, etc.)
+- **Dynamic relationship types** for each tube line (e.g., :BAKERLOO, :CENTRAL, :CIRCLE)
 - **Delta Lake tables** for stations and tube lines
 
 ## Project Structure
@@ -174,53 +175,18 @@ CSV files → Unity Catalog Volume → Delta Lake tables → PySpark → Neo4j
 - `(:Station)` with properties: station_id, name, latitude, longitude, zone, postcode
 
 **Relationships:**
-- `(:Station)-[:BAKERLOO]->(:Station)` (bidirectional)
+- Dynamic relationship types for each tube line (bidirectional)
+- Examples: `:BAKERLOO`, `:CENTRAL`, `:CIRCLE`, `:DISTRICT`, `:HAMMERSMITH_AND_CITY`, `:JUBILEE`, `:METROPOLITAN`, `:NORTHERN`, `:PICCADILLY`, `:VICTORIA`, `:WATERLOO_AND_CITY`
+- Format: `(:Station)-[:TUBE_LINE]->(:Station)`
 
 ### Key Features
 
 - **Intermediate Delta Lake storage** for data validation
 - **Type-safe transformations** using PySpark
+- **Dynamic relationship types** - automatically creates relationship types for each tube line
 - **Batch relationship creation** using custom Cypher
 - **Comprehensive validation queries**
 - **Index creation** for performance
-
-## Extending the Implementation
-
-### Add All Tube Lines
-
-Modify Step 10 in the notebook to process all lines:
-
-```python
-# Get all unique tube lines
-tube_lines_list = (
-    tube_lines
-    .select("Tube_Line")
-    .distinct()
-    .rdd
-    .flatMap(lambda x: x)
-    .collect()
-)
-
-# Process each line
-for line in tube_lines_list:
-    line_data = tube_lines.filter(F.col("Tube_Line") == line)
-    # Create relationships...
-```
-
-### Dynamic Relationship Types
-
-Create different relationship types for each line:
-
-```python
-# Use line name as relationship type
-create_rel_query = f"""
-UNWIND $rows AS row
-MATCH (from:Station {{name: row.From_Station}})
-MATCH (to:Station {{name: row.To_Station}})
-MERGE (from)-[:{line.upper()}]->(to)
-MERGE (to)-[:{line.upper()}]->(from)
-"""
-```
 
 ## Validation Queries
 
@@ -231,20 +197,28 @@ Run these in Neo4j Browser:
 MATCH (s:Station)
 RETURN count(s) as total_stations;
 
-// Count Bakerloo relationships
-MATCH ()-[r:BAKERLOO]->()
-RETURN count(r) as bakerloo_relationships;
+// Count all relationships by type
+MATCH ()-[r]->()
+RETURN type(r) as line, count(r) as connections
+ORDER BY connections DESC;
 
-// Find stations with most connections
-MATCH (s:Station)-[:BAKERLOO]-()
-RETURN s.name, count(*) as connections
-ORDER BY connections DESC
-LIMIT 5;
+// Find stations with most connections (across all lines)
+MATCH (s:Station)-[r]-()
+RETURN s.name, count(r) as total_connections
+ORDER BY total_connections DESC
+LIMIT 10;
 
-// Sample path query
-MATCH path = (from:Station {name: 'Baker Street'})-[:BAKERLOO*1..3]-(to:Station)
+// Sample multi-line path query (e.g., Baker Street connections)
+MATCH (s:Station {name: 'Baker Street'})-[r]-(connected:Station)
+RETURN s.name, type(r) as tube_line, connected.name
+LIMIT 20;
+
+// Find paths between two stations across any lines
+MATCH path = shortestPath(
+  (from:Station {name: 'King\'s Cross St. Pancras'})-[*..5]-(to:Station {name: 'Victoria'})
+)
 RETURN path
-LIMIT 5;
+LIMIT 1;
 ```
 
 ## Troubleshooting
