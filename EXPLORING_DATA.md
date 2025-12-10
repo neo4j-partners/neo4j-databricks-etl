@@ -217,6 +217,7 @@ Example queries:
 ```cypher
 // Count stations by zone
 MATCH (s:Station)
+WHERE s.zone IS NOT NULL
 RETURN s.zone as zone, count(s) as stations
 ORDER BY zone
 
