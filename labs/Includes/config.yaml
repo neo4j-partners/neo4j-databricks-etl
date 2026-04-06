@@ -1,0 +1,25 @@
+# London Transport ETL Workshop Configuration
+# This file controls the setup behavior for the London Transport ETL labs.
+
+course_name: "London Transport ETL Workshop"
+
+# Catalog and Schema
+# The setup notebook creates a catalog named {prefix}_{username} and a schema within it.
+catalog:
+  prefix: "london_transport"
+  schema_name: "london_data"
+  volume_name: "source_files"
+
+# Neo4j Secrets
+# The setup notebook stores Neo4j credentials in this Databricks secret scope.
+secrets:
+  scope_name: "neo4j-london"
+  keys:
+    username: "username"
+    password: "password"
+    url: "url"
+    volume_path: "volume_path"
+
+# Neo4j Spark Connector
+spark_connector:
+  maven_coordinates: "org.neo4j:neo4j-connector-apache-spark_2.12:5.3.1_for_spark_3"
