@@ -1,3 +1,7 @@
+[![Databricks](https://img.shields.io/badge/Databricks-Solution_Accelerator-FF3621?style=for-the-badge&logo=databricks)](https://databricks.com)
+[![Unity Catalog](https://img.shields.io/badge/Unity_Catalog-Enabled-00A1C9?style=for-the-badge)](https://docs.databricks.com/en/data-governance/unity-catalog/index.html)
+[![Neo4j](https://img.shields.io/badge/Neo4j-Partner-4581C3?style=for-the-badge&logo=neo4j)](https://neo4j.com/partners/databricks/)
+
 # London Transport ETL Workshop: From Lakehouse to Knowledge Graph
 
 ## Overview
@@ -155,10 +159,23 @@ See [EXPLORING_DATA.md](EXPLORING_DATA.md) for a guide to exploring the graph vi
 **"File not found"**
 - Re-run `0 - Required Setup.py` to ensure data files are copied to the volume
 
-## License
+## Project Support
+
+Please note the code in this project is provided for your exploration only, and are not formally supported by Databricks with Service Level Agreements (SLAs). They are provided AS-IS and we do not make any guarantees of any kind. Please do not submit a support ticket relating to any issues arising from the use of these projects. The source in this project is provided subject to the Databricks [License](./LICENSE.md). All included or referenced third party libraries are subject to the licenses set forth below.
+
+Any issues discovered through the use of this project should be filed as GitHub Issues on the Repo. They will be reviewed as time permits, but there are no formal SLAs for support.
+
+## Third-Party Package Licenses
+
+| library | description | license | source |
+|---------|-------------|---------|--------|
+| neo4j-connector-apache-spark | Neo4j Spark Connector | Apache 2.0 | https://github.com/neo4j/neo4j-spark-connector |
+| langchain-neo4j | Neo4j LangChain integration | MIT | https://github.com/langchain-ai/langchain-neo4j |
+| langchain-openai | OpenAI LangChain integration | MIT | https://github.com/langchain-ai/langchain |
+| langchain-core | LangChain core primitives | MIT | https://github.com/langchain-ai/langchain |
+| pyyaml | YAML parsing | MIT | https://github.com/yaml/pyyaml |
+| python-dotenv | Environment variable loading | BSD-3 | https://github.com/theskumar/python-dotenv |
 
 Sample data from Transport for London. Educational purposes only.
 
----
-
-**Built with:** Databricks | Delta Lake | PySpark | Neo4j Spark Connector | LangChain
+&copy; 2026 Databricks, Inc. All rights reserved. The source in this notebook is provided subject to the [Databricks License](https://databricks.com/db-license-source). All included or referenced third party libraries are subject to the licenses set forth above.
