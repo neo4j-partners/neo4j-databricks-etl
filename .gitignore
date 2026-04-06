@@ -116,8 +116,6 @@ crashlytics-build.properties
 fabric.properties
 
 # Project specific
-datasets/csv_files/**/*.csv
-!datasets/csv_files/london_transport/*.csv
 *.log
 *.tmp
 .databricks/

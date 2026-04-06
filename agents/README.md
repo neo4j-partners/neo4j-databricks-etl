@@ -1,6 +1,6 @@
 # Neo4j Natural Language Query Agent
 
-A standalone Python program that allows you to query the Neo4j London Transport graph using natural language. Converted from the Databricks notebook `query_london_transport.ipynb` to run anywhere with `uv`.
+A standalone Python program that allows you to query the Neo4j London Transport graph using natural language. Converted from the Databricks notebook `labs/2 - Query London Transport.py` to run anywhere with `uv`.
 
 ## Features
 
@@ -14,7 +14,7 @@ A standalone Python program that allows you to query the Neo4j London Transport 
 ## Prerequisites
 
 - **Python 3.11+** (managed by `uv`)
-- **Neo4j database** with London Transport data loaded (run `../notebooks/load_london_transport.ipynb` first)
+- **Neo4j database** with London Transport data loaded (run `labs/0 - Required Setup.py` and `labs/1 - Load London Transport.py` first)
 - **LLM API access** (OpenAI, Databricks Foundation Models, or compatible endpoint)
 
 ## Installation

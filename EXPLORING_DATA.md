@@ -1,6 +1,6 @@
 # Exploring the London Transport Data
 
-After loading the data using `load_london_transport.ipynb`, you can visually explore the graph in Neo4j Aura.
+After loading the data using `1 - Load London Transport.py`, you can visually explore the graph in Neo4j Aura.
 
 ## Step 1: Navigate to Aura Explore
 
@@ -238,7 +238,7 @@ RETURN path
 
 ## Next Steps
 
-- **Try the Text-to-Cypher Agent:** Use `notebooks/query_london_transport.ipynb` to ask questions in natural language
+- **Try the Text-to-Cypher Agent:** Use `labs/2 - Query London Transport.py` to ask questions in natural language
 - **Build Dashboards:** Create custom visualizations in the Dashboards section
 - **Learn Cypher:** Explore the Developer hub for Cypher query tutorials
 

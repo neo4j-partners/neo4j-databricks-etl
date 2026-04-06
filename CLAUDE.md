@@ -118,8 +118,6 @@ neo4j-databricks-etl/
 ├── README.md                              # Setup instructions and overview
 ├── CLAUDE.md                              # This file - guidance for Claude Code
 ├── EXPLORING_DATA.md                      # Visual exploration guide for Neo4j Aura
-├── DBX_PORT_v2.md                         # Implementation plan and status
-├── TEXT2CYPHER_PROPOSAL.md                # Text-to-Cypher agent proposal and status
 ├── images/                                # Screenshots and diagrams
 ├── agents/                                # Standalone Python CLI agent
 │   └── query_neo4j.py
@@ -264,7 +262,7 @@ Re-run `0 - Required Setup.py` with updated widget values. Credentials are store
 
 **"Authentication failed"**
 - Verify Databricks Secrets scope exists: `databricks secrets list-scopes`
-- Check password is set: `databricks secrets list-secrets neo4j`
+- Check secrets are set: `databricks secrets list-secrets neo4j-london`
 
 ### File Issues
 
@@ -321,10 +319,10 @@ This project is a port from a GCP Dataflow pipeline with these architectural dif
 
 | Aspect | GCP Dataflow | This Project |
 |--------|--------------|--------------|
-| Configuration | JSON templates | Notebook cells with widgets |
+| Configuration | JSON templates | config.yaml + Databricks Secrets |
 | Data Source | BigQuery tables | Delta Lake tables |
 | File Storage | GCS buckets | Unity Catalog Volumes |
 | Credentials | Secret Manager or JSON | Databricks Secrets |
-| Orchestration | Managed Dataflow template | Direct PySpark code |
+| Orchestration | Managed Dataflow template | Shared Python libraries via %run |
 | Transformations | Declarative JSON mappings | Imperative DataFrame operations |
 | Monitoring | Dataflow console | Notebook output and Spark UI |

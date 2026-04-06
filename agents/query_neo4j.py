@@ -84,7 +84,7 @@ def validate_data(graph: Neo4jGraph) -> bool:
             print(f"  - Connections: {result[0]['relationship_count']}")
             return True
         else:
-            print("✗ No data found. Please run load_london_transport.ipynb first.", file=sys.stderr)
+            print("✗ No data found. Please run the labs notebooks first (0 - Required Setup, 1 - Load London Transport).", file=sys.stderr)
             return False
     except Exception as e:
         print(f"Error validating data: {e}", file=sys.stderr)
