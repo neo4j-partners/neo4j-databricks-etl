@@ -10,24 +10,20 @@ This repository demonstrates ETL from Databricks to Neo4j using Delta Lake and P
 
 ## Core Commands
 
-### Development & Testing
-```bash
-# List repository structure
-ls -la
-
-# View notebook contents (Jupyter notebook format)
-# Notebooks are in notebooks/load_london_transport.ipynb
-```
-
 **Note:** This is a Databricks notebook-based project. There are no local build, test, or lint commands. All execution happens in Databricks workspace.
 
 ### Databricks Execution
 
-The main notebook is `notebooks/load_london_transport.ipynb` which must be run in a Databricks environment with:
-- Unity Catalog enabled
-- Neo4j Spark Connector library: `org.neo4j:neo4j-connector-apache-spark_2.12:5.3.1_for_spark_3`
-- Neo4j Python Driver: `neo4j==6.0.2`
-- Databricks Secrets configured (scope: `neo4j`, key: `password`)
+Notebooks live in `labs/` and must be run in order on a Databricks cluster with:
+- **Access mode:** Dedicated (required for Neo4j Spark Connector)
+- **Runtime:** 13.3 LTS or higher
+- **Maven library:** `org.neo4j:neo4j-connector-apache-spark_2.12:5.3.1_for_spark_3`
+- **PyPI library:** `neo4j==6.0.2`
+
+Run order:
+1. `0 - Required Setup.py` - Creates catalog, schema, volume, copies data, stores Neo4j secrets
+2. `1 - Load London Transport.py` - ETL: CSV -> Delta Lake -> Neo4j
+3. `2 - Query London Transport.py` - Text-to-Cypher natural language queries
 
 ## Architecture & Data Flow
 
@@ -61,23 +57,20 @@ Neo4j Graph Database (via Spark Connector)
 
 ### Key Implementation Patterns
 
-**Neo4j Connection Configuration:**
-```python
-NEO4J_URL = dbutils.widgets.get("neo4j_url")
-NEO4J_USER = dbutils.widgets.get("neo4j_username")
-NEO4J_PASS = dbutils.secrets.get(scope="neo4j", key="password")
-NEO4J_DB = dbutils.widgets.get("neo4j_database")
+**Configuration:** Centralized in `labs/Includes/config.yaml`. The setup notebook (`0 - Required Setup.py`) stores Neo4j credentials in a Databricks secret scope. Subsequent notebooks load credentials from secrets via `config.yaml`.
 
-spark.conf.set("neo4j.url", NEO4J_URL)
-spark.conf.set("neo4j.authentication.basic.username", NEO4J_USER)
-spark.conf.set("neo4j.authentication.basic.password", NEO4J_PASS)
-spark.conf.set("neo4j.database", NEO4J_DB)
-```
+**Shared Libraries:** Reusable logic lives in `labs/Includes/_lib/`:
+- `setup_orchestrator.py` - Catalog/schema/volume creation, data copying, secret management
+- `london_transport_import.py` - Full ETL pipeline (CSV -> Delta -> Neo4j)
 
-**Reading CSV to Delta Lake:**
+Notebooks import shared libraries via `%run ./Includes/_lib/module_name`.
+
+**Neo4j Connection (from secrets):**
 ```python
-df = spark.read.option("header", "true").option("inferSchema", "true").csv(f"{BASE_PATH}/file.csv")
-df.write.format("delta").mode("overwrite").saveAsTable(f"{CATALOG}.{SCHEMA}.table_name")
+scope = config["secrets"]["scope_name"]
+NEO4J_URL = dbutils.secrets.get(scope=scope, key="url")
+NEO4J_USER = dbutils.secrets.get(scope=scope, key="username")
+NEO4J_PASS = dbutils.secrets.get(scope=scope, key="password")
 ```
 
 **Writing Nodes to Neo4j:**
@@ -127,64 +120,61 @@ neo4j-databricks-etl/
 ├── EXPLORING_DATA.md                      # Visual exploration guide for Neo4j Aura
 ├── DBX_PORT_v2.md                         # Implementation plan and status
 ├── TEXT2CYPHER_PROPOSAL.md                # Text-to-Cypher agent proposal and status
-├── datasets/
-│   ├── csv_files/london_transport/
-│   │   ├── London_stations.csv            # 302 stations
-│   │   └── London_tube_lines.csv          # Tube connections
-│   └── README.md                          # Dataset documentation
-├── images/
-│   ├── aura_explore.png                   # Aura Explore interface screenshot
-│   ├── search_stations.png                # Search pattern example
-│   └── all_stations_graph.png             # Full graph visualization
-└── notebooks/
-    ├── load_london_transport.ipynb        # ETL notebook (12 steps)
-    └── query_london_transport.ipynb       # Text-to-Cypher agent for querying data
+├── images/                                # Screenshots and diagrams
+├── agents/                                # Standalone Python CLI agent
+│   └── query_neo4j.py
+└── labs/                                  # Self-contained labs (run in order)
+    ├── 0 - Required Setup.py              # Environment setup notebook
+    ├── 1 - Load London Transport.py       # ETL notebook
+    ├── 2 - Query London Transport.py      # Text-to-Cypher notebook
+    └── Includes/
+        ├── config.yaml                    # Centralized configuration
+        ├── _lib/
+        │   ├── __init__.py
+        │   ├── setup_orchestrator.py      # Setup functions
+        │   └── london_transport_import.py # ETL functions
+        └── data/
+            └── csv/
+                ├── London_stations.csv    # 302 stations
+                └── London_tube_lines.csv  # Tube connections
 ```
 
-## Notebook Structure
+## Labs Structure
 
-### ETL Notebook
+### Notebook Format
 
-The ETL notebook (`load_london_transport.ipynb`) is organized into these sections:
+All notebooks use Databricks `.py` notebook format (not `.ipynb`):
+- `# Databricks notebook source` header
+- `# COMMAND ----------` cell separators
+- `# MAGIC %md` for markdown cells
+- `# MAGIC %run ./path` for importing shared libraries
 
-1. **Prerequisites & Configuration** - Widgets for connection parameters
-2. **Connection Testing** - Verify Neo4j connectivity
-3. **Part 1: CSV → Delta Lake** (Steps 1-6)
-   - Verify CSV files in Unity Catalog Volume
-   - Load and transform stations data
-   - Load tube lines data
-   - Write to Delta tables
-4. **Part 2: Stations → Neo4j** (Steps 7-9)
-   - Write Station nodes
-   - Create index on station_id
-   - Verify node creation
-5. **Part 3: Bakerloo Line (Proof-of-Concept)** (Steps 10-12)
-   - Create relationships for single line
-   - Validate implementation
-6. **Part 4: All Tube Lines** (Steps 13-14)
-   - Dynamically create line-specific relationship types
-   - Process all remaining tube lines
-7. **Part 5: Final Validation** (Step 15)
-   - Count nodes and relationships by type
-   - Query busiest stations
-   - Sample path queries
+### 0 - Required Setup
 
-### Text-to-Cypher Query Notebook
+Creates the complete environment in 4 steps:
+1. Create catalog (`london_transport_{username}`), schema, and volume
+2. Copy CSV data files from `Includes/data/` to the volume
+3. Store Neo4j credentials as Databricks secrets
+4. Verify Neo4j connectivity
 
-The query notebook (`query_london_transport.ipynb`) allows natural language queries:
+### 1 - Load London Transport
 
-1. **Configuration** - Widgets for Neo4j and Databricks Foundation Model setup
-2. **Connection and Validation** - Verify graph data exists
-3. **Schema Retrieval** - Display graph structure
-4. **LLM Configuration** - Set up Cypher generation with specialized prompt
-5. **Query Interface** - Simple `ask_question()` function
-6. **Example Questions** - Organized by category:
-   - Basic counting ("How many stations in zone 1?")
-   - Station information ("What zone is King's Cross in?")
-   - Tube line queries ("Which stations does Bakerloo connect?")
-   - Connection/traffic queries ("Which stations have most connections?")
-   - London travel ("Find path between stations", "Avoid busy stations")
-7. **Documentation** - How it works, limitations, troubleshooting
+ETL pipeline orchestrated by `run_full_import()` from `london_transport_import.py`:
+1. Load config from secrets
+2. Clear Neo4j database
+3. Load CSVs to Delta Lake tables
+4. Write Station nodes to Neo4j
+5. Create all tube line relationships (bidirectional, line-specific types)
+6. Validate the imported graph
+
+### 2 - Query London Transport
+
+Text-to-Cypher natural language interface:
+1. Load Neo4j credentials from secrets (via config.yaml)
+2. Connect to Neo4j and validate data
+3. Configure LLM (Databricks Foundation Model, temperature 0.0)
+4. Create Cypher generation chain with specialized prompt
+5. Interactive `ask_question()` interface with example questions
 
 **Key Features:**
 - Uses Databricks Foundation Models (databricks-claude-sonnet-4-5)
@@ -242,30 +232,21 @@ RETURN count(s), count(r)
 
 ### Adding New Tube Lines
 
-To add support for additional tube lines, simply add rows to `London_tube_lines.csv` with the new line name. The notebook dynamically creates relationship types from the `Tube_Line` column.
+Add rows to `labs/Includes/data/csv/London_tube_lines.csv` with the new line name. The import dynamically creates relationship types from the `Tube_Line` column.
 
-### Changing Delta Lake Location
+### Changing Catalog/Schema Names
 
-Update the widgets in the notebook:
-```python
-dbutils.widgets.text("catalog_name", "your_catalog", "Catalog Name")
-dbutils.widgets.text("schema_name", "your_schema", "Schema Name")
-dbutils.widgets.text("volume_name", "your_volume", "Volume Name")
+Edit `labs/Includes/config.yaml`:
+```yaml
+catalog:
+  prefix: "your_prefix"
+  schema_name: "your_schema"
+  volume_name: "your_volume"
 ```
 
 ### Changing Neo4j Connection
 
-Update the Neo4j widgets:
-```python
-dbutils.widgets.text("neo4j_url", "bolt://your-host:7687", "Neo4j URL")
-dbutils.widgets.text("neo4j_database", "neo4j", "Neo4j Database")
-```
-
-And ensure Databricks Secrets are configured:
-```bash
-databricks secrets create-scope neo4j
-databricks secrets put-secret neo4j password
-```
+Re-run `0 - Required Setup.py` with updated widget values. Credentials are stored in the secret scope defined in `config.yaml`.
 
 ## Troubleshooting
 
@@ -288,128 +269,23 @@ databricks secrets put-secret neo4j password
 ### File Issues
 
 **"File not found"**
-- Verify Unity Catalog volume path: `/Volumes/{catalog}/{schema}/{volume}`
-- Confirm CSV files are uploaded to the volume
+- Verify setup notebook ran successfully (check volume path in secrets)
+- CSV files should be in `/Volumes/{catalog}/{schema}/{volume}/csv/`
 - Use `dbutils.fs.ls()` to list volume contents
 
 ### Data Issues
 
 **"Relationship creation failed"**
-- Ensure Station nodes exist before creating relationships (run Parts 1-2 first)
-- Verify station names match exactly between CSVs (case-sensitive, watch for trailing spaces)
-- Check Delta tables have correct data: `spark.table("london_catalog.london_schema.london_stations").show()`
+- Run notebooks in order: Setup -> Load -> Query
+- Verify station names match exactly between CSVs (case-sensitive)
 
-### Notebook Format Issues
+### Notebook Format
 
-**CRITICAL: Databricks notebook formatting requirements**
-
-Databricks notebooks must be properly structured Jupyter notebook JSON files (.ipynb). Common issues:
-
-**"Notebook won't open in Databricks"**
-- The notebook file contains raw JSON as text in a single cell instead of being parsed as multiple cells
-- This happens when a notebook is pasted or imported incorrectly
-- Databricks sees the entire JSON structure as plain text content rather than a multi-cell notebook
-
-**How to fix:**
-1. **Never** copy/paste raw .ipynb JSON content into Databricks
-2. **Always** use Databricks "Import" feature (File → Import) for .ipynb files
-3. When creating notebooks programmatically, use the Databricks-native format shown below
-
-**Databricks Notebook Format (Required)**
-
-Databricks notebooks require specific metadata that standard Jupyter notebooks don't have. Here's the structure that works in Databricks:
-
-```python
-import uuid
-
-# Databricks-native notebook structure
-notebook = {
-    "cells": [
-        {
-            "cell_type": "code",
-            "execution_count": 0,
-            "metadata": {
-                "application/vnd.databricks.v1+cell": {
-                    "cellMetadata": {},
-                    "inputWidgets": {},
-                    "nuid": str(uuid.uuid4()),
-                    "showTitle": False,
-                    "tableResultSettingsMap": {},
-                    "title": ""
-                }
-            },
-            "outputs": [],
-            "source": ["print('Hello')"]
-        },
-        {
-            "cell_type": "markdown",
-            "metadata": {
-                "application/vnd.databricks.v1+cell": {
-                    "cellMetadata": {},
-                    "inputWidgets": {},
-                    "nuid": str(uuid.uuid4()),
-                    "showTitle": False,
-                    "tableResultSettingsMap": {},
-                    "title": ""
-                }
-            },
-            "source": ["# Markdown cell"]
-        }
-    ],
-    "metadata": {
-        "application/vnd.databricks.v1+notebook": {
-            "computePreferences": None,
-            "dashboards": [],
-            "environmentMetadata": None,
-            "inputWidgetPreferences": None,
-            "language": "python",
-            "notebookMetadata": {
-                "pythonIndentUnit": 4
-            },
-            "notebookName": "my_notebook",
-            "widgets": {}
-        },
-        "kernelspec": {
-            "display_name": "Python 3",
-            "language": "python",
-            "name": "python3"
-        },
-        "language_info": {
-            "name": "python"
-        }
-    },
-    "nbformat": 4,
-    "nbformat_minor": 4
-}
-
-with open('notebook.ipynb', 'w') as f:
-    json.dump(notebook, f, indent=1)
-```
-
-**Required metadata fields:**
-
-**Notebook level:**
-- `application/vnd.databricks.v1+notebook`: Container for Databricks-specific notebook settings
-  - `language`: "python"
-  - `notebookMetadata`: `{"pythonIndentUnit": 4}`
-  - `notebookName`: Filename without extension
-  - `widgets`: `{}` (widget configuration)
-  - `computePreferences`, `dashboards`, `environmentMetadata`, `inputWidgetPreferences`: `null` or `[]`
-
-**Cell level (EVERY cell must have this):**
-- `application/vnd.databricks.v1+cell`: Container for Databricks-specific cell settings
-  - `nuid`: Unique identifier (UUID) - use `str(uuid.uuid4())`
-  - `showTitle`: `false`
-  - `title`: `""`
-  - `cellMetadata`: `{}`
-  - `inputWidgets`: `{}`
-  - `tableResultSettingsMap`: `{}`
-
-**Standard fields:**
-- `execution_count`: `0` for code cells
-- `language_info`: `{"name": "python"}` (no version field)
-- `nbformat`: `4`
-- `nbformat_minor`: `4`
+This project uses Databricks `.py` notebook format (not `.ipynb`). The `.py` format:
+- Uses `# COMMAND ----------` as cell separators
+- Uses `# MAGIC %md` for markdown cells
+- Uses `# MAGIC %run` for imports
+- Imports directly into Databricks via the workspace file system
 
 ## Working Approach for New Features and Changes
 
